@@ -25,6 +25,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="AIEvasiveVisuals.py" />
+    <Compile Include="attackUtility.py" />
     <Compile Include="maybeMain.py">
       <SubType>Code</SubType>
     </Compile>

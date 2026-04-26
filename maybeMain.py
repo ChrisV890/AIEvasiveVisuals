@@ -7,6 +7,7 @@ import numpy as np
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
+from attackUtility import generate_adversarial_patch, apply_patch_to_batch, evaluate_loader, unnormalize_image, show_original_and_patched, rect_coords, torso_patch_coords, apply_patch_on_person, apply_patch_to_batch_with_bbox, get_center_torso_bbox, evaluate_with_realistic_patch
 
 #functions
 def loader_to_numpy(loader):
@@ -141,10 +142,16 @@ val_loader = DataLoader(val_set, batch_size = 16, shuffle=False)
 
 
 
-#train classifier on data.
+
+
+
+
+
+
+
+
+
 x_train, y_train = loader_to_numpy(train_loader)
-
-
 
 classifier.fit(
     x_train,
@@ -154,12 +161,45 @@ classifier.fit(
     verbose=True
 )
 
+# Clean evaluation
+clean_metrics = evaluate_loader(classifier, val_loader)
 
-evaluate_on_validation(classifier, val_loader)
+# Create attack
+attack = AdversarialPatch(
+    classifier=classifier,
+    patch_shape=(3, 100, 100),
+    rotation_max=22.5,
+    scale_min=0.7,
+    scale_max=1.0,
+    learning_rate=5.0,
+    max_iter=5000,
+    batch_size=8,
+)
+
+# Generate patch
+patch, mask, x_batch, y_batch = generate_adversarial_patch(
+    attack,
+    train_loader,
+    num_classes=2
+)
+
+# Generic patched evaluation
+patched_metrics = evaluate_loader(
+    classifier,
+    val_loader,
+    attack=attack,
+    patch=patch,
+    patched=True
+)
+
+# Realistic patched evaluation
 
 
-
-
+# Success rate check
+clean_preds = clean_metrics["predicted_classes"]
+patched_preds = patched_metrics["predicted_classes"]
+success_rate = np.mean(clean_preds != patched_preds)
+print("Attack success rate:", success_rate)
 
 
 
