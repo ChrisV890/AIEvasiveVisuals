@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>713b084b-8705-4c80-a1b2-27220d62d3b6</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>maybeMain.py</StartupFile>
+    <StartupFile>cusCNN.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>

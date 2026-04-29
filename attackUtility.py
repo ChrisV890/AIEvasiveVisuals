@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 #from art.attacks.evasion import AdversarialPatch
 
@@ -34,24 +35,40 @@ def get_mixed_batch(data_loader):
     images, labels = next(iter(data_loader))
     return images.numpy().astype(np.float32), labels.numpy().astype(np.int64)
 
-def generate_adversarial_patch(attack, data_loader, num_classes=2):
+def generate_adversarial_patch(attack, data_loader, num_classes=2, max_batches=10):
     """
-    Trains the ART adversarial patch and returns:
-    - patch: the learned patch
-    - mask: the returned mask from ART
-    - x_batch: the batch used to generate the patch
-    - y_batch: the labels used to generate the patch
-    """
-    x_batch, y_batch = get_mixed_batch(data_loader)
-    y_batch_onehot = to_one_hot(y_batch, num_classes=num_classes)
+    Train adversarial patch using MULTIPLE batches instead of just one.
 
-    patch, mask = attack.generate(x=x_batch, y=y_batch_onehot)
+    max_batches: how many batches to use (increase for stronger patch)
+    """
+
+    x_list = []
+    y_list = []
+
+    for i, (images, labels) in enumerate(data_loader):
+        if i >= max_batches:
+            break
+
+        x = images.numpy().astype(np.float32)
+        y = labels.numpy().astype(np.int64)
+
+        x_list.append(x)
+        y_list.append(y)
+
+    # Combine batches
+    x_all = np.concatenate(x_list, axis=0)
+    y_all = np.concatenate(y_list, axis=0)
+
+    #y_all_onehot = to_one_hot(y_all, num_classes=num_classes)
+
+    patch, mask = attack.generate(x=x_all, y=y_all)
 
     print("Patch generated.")
     print("Patch shape:", patch.shape)
     print("Mask shape:", mask.shape)
+    print("Total images used for patch:", len(x_all))
 
-    return patch, mask, x_batch, y_batch
+    return patch, mask
 
 
 #Evaluation on clean or patch data
@@ -77,6 +94,114 @@ def unnormalize_image(img_chw):
     return img
 
 
+# def show_clean_vs_patched(x, y, attack, patch, classifier=None, n=10, scale=0.4):
+#     n = min(n, len(x))
+#     x_clean = x[:n]
+#     y_clean = y[:n]
+
+#     x_patched = attack.apply_patch(
+#         x_clean,
+#         scale=scale,
+#         patch_external=patch
+#     )
+
+#     plt.figure(figsize=(16, 8 * n))
+
+#     for i in range(n):
+#         clean_img = unnormalize_image(x_clean[i])
+#         patched_img = unnormalize_image(x_patched[i])
+
+#         if classifier is not None:
+#             clean_pred = np.argmax(classifier.predict(x_clean[i:i+1]), axis=1)[0]
+#             patched_pred = np.argmax(classifier.predict(x_patched[i:i+1]), axis=1)[0]
+#             clean_title = f"Clean\nTrue: {y_clean[i]} Pred: {clean_pred}"
+#             patched_title = f"Patched\nPred: {patched_pred}"
+#         else:
+#             clean_title = f"Clean\nTrue: {y_clean[i]}"
+#             patched_title = "Patched"
+
+#         plt.subplot(n, 2, 2 * i + 1)
+#         plt.imshow(clean_img)
+#         plt.title(clean_title)
+#         plt.axis("off")
+
+#         plt.subplot(n, 2, 2 * i + 2)
+#         plt.imshow(patched_img)
+#         plt.title(patched_title)
+#         plt.axis("off")
+
+#     plt.tight_layout()
+#     plt.show()
+
+
+
+# def show_least_confident_patched_with_clean(
+#     x, y, classifier, attack, patch, n=10, scale=0.4
+# ):
+#     """
+#     Shows the N images where the PATCHED prediction has the lowest confidence,
+#     alongside their CLEAN versions.
+
+#     Displays:
+#     - Clean image + confidence
+#     - Patched image + confidence
+#     """
+
+#     # --- Clean predictions ---
+#     clean_logits = classifier.predict(x)
+#     clean_probs = softmax_np(clean_logits)
+#     clean_preds = np.argmax(clean_probs, axis=1)
+#     clean_conf = np.max(clean_probs, axis=1)
+
+#     # --- Patched predictions ---
+#     x_patched = attack.apply_patch(
+#         x,
+#         scale=scale,
+#         patch_external=patch
+#     )
+
+#     patched_logits = classifier.predict(x_patched)
+#     patched_probs = softmax_np(patched_logits)
+#     patched_preds = np.argmax(patched_probs, axis=1)
+#     patched_conf = np.max(patched_probs, axis=1)
+
+#     # --- Find lowest-confidence patched indices ---
+#     idxs = np.argsort(patched_conf)[:n]
+
+#     # --- Plot ---
+#     rows = n
+#     cols = 2
+#     plt.figure(figsize=(16, 8 * rows))
+
+#     for i, idx in enumerate(idxs):
+#         clean_img = unnormalize_image(x[idx])
+#         patched_img = unnormalize_image(x_patched[idx])
+
+#         # Clean
+#         plt.subplot(rows, cols, 2*i + 1)
+#         plt.imshow(clean_img)
+#         plt.title(
+#             f"CLEAN\nT:{y[idx]} P:{clean_preds[idx]}\nConf:{clean_conf[idx]:.3f}",
+#             fontsize=9
+#         )
+#         plt.axis("off")
+
+#         # Patched
+#         plt.subplot(rows, cols, 2*i + 2)
+#         plt.imshow(patched_img)
+#         plt.title(
+#             f"PATCHED\nP:{patched_preds[idx]}\nConf:{patched_conf[idx]:.3f}",
+#             fontsize=9
+#         )
+#         plt.axis("off")
+
+#     plt.suptitle("Lowest Confidence Patched Images (with Clean Comparison)", fontsize=14)
+#     plt.tight_layout()
+#     plt.show()
+
+
+
+
 def show_clean_vs_patched(x, y, attack, patch, classifier=None, n=10, scale=0.4):
     n = min(n, len(x))
     x_clean = x[:n]
@@ -88,55 +213,76 @@ def show_clean_vs_patched(x, y, attack, patch, classifier=None, n=10, scale=0.4)
         patch_external=patch
     )
 
-    plt.figure(figsize=(8, 3 * n))
+    cols = int(math.ceil(math.sqrt(n)))
+    rows = int(math.ceil(n / cols))
+
+    # CLEAN WINDOW
+    fig1, axes1 = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows), dpi=150)
+    axes1 = np.array(axes1).reshape(-1)
 
     for i in range(n):
         clean_img = unnormalize_image(x_clean[i])
-        patched_img = unnormalize_image(x_patched[i])
 
         if classifier is not None:
             clean_pred = np.argmax(classifier.predict(x_clean[i:i+1]), axis=1)[0]
-            patched_pred = np.argmax(classifier.predict(x_patched[i:i+1]), axis=1)[0]
-            clean_title = f"Clean\nTrue: {y_clean[i]} Pred: {clean_pred}"
-            patched_title = f"Patched\nPred: {patched_pred}"
+            title = f"True: {y_clean[i]} | Pred: {clean_pred}"
         else:
-            clean_title = f"Clean\nTrue: {y_clean[i]}"
-            patched_title = "Patched"
+            title = f"True: {y_clean[i]}"
 
-        plt.subplot(n, 2, 2 * i + 1)
-        plt.imshow(clean_img)
-        plt.title(clean_title)
-        plt.axis("off")
+        axes1[i].imshow(clean_img)
+        axes1[i].set_title(title, fontsize=10)
+        axes1[i].axis("off")
 
-        plt.subplot(n, 2, 2 * i + 2)
-        plt.imshow(patched_img)
-        plt.title(patched_title)
-        plt.axis("off")
+    for j in range(n, len(axes1)):
+        axes1[j].axis("off")
 
+    fig1.suptitle("CLEAN IMAGES", fontsize=18)
+    plt.tight_layout()
+    #plt.show()
+
+    # PATCHED WINDOW
+    fig2, axes2 = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows), dpi=150)
+    axes2 = np.array(axes2).reshape(-1)
+
+    for i in range(n):
+        patched_img = unnormalize_image(x_patched[i])
+
+        if classifier is not None:
+            patched_pred = np.argmax(classifier.predict(x_patched[i:i+1]), axis=1)[0]
+            title = f"Pred: {patched_pred}"
+        else:
+            title = "Patched"
+
+        axes2[i].imshow(patched_img)
+        axes2[i].set_title(title, fontsize=10)
+        axes2[i].axis("off")
+
+    for j in range(n, len(axes2)):
+        axes2[j].axis("off")
+
+    fig2.suptitle("PATCHED IMAGES", fontsize=18)
     plt.tight_layout()
     plt.show()
 
 
 
-def show_least_confident_patched_with_clean(
-    x, y, classifier, attack, patch, n=10, scale=0.4
-):
-    """
-    Shows the N images where the PATCHED prediction has the lowest confidence,
-    alongside their CLEAN versions.
 
-    Displays:
-    - Clean image + confidence
-    - Patched image + confidence
-    """
 
-    # --- Clean predictions ---
+
+
+
+
+
+
+
+
+
+def show_least_confident_patched_with_clean(x, y, classifier, attack, patch, n=10, scale=0.4):
     clean_logits = classifier.predict(x)
     clean_probs = softmax_np(clean_logits)
     clean_preds = np.argmax(clean_probs, axis=1)
     clean_conf = np.max(clean_probs, axis=1)
 
-    # --- Patched predictions ---
     x_patched = attack.apply_patch(
         x,
         scale=scale,
@@ -148,36 +294,49 @@ def show_least_confident_patched_with_clean(
     patched_preds = np.argmax(patched_probs, axis=1)
     patched_conf = np.max(patched_probs, axis=1)
 
-    # --- Find lowest-confidence patched indices ---
     idxs = np.argsort(patched_conf)[:n]
 
-    # --- Plot ---
-    rows = n
-    cols = 2
-    plt.figure(figsize=(8, 3 * rows))
+    cols = int(math.ceil(math.sqrt(n)))
+    rows = int(math.ceil(n / cols))
+
+    # CLEAN WINDOW
+    fig1, axes1 = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows), dpi=150)
+    axes1 = np.array(axes1).reshape(-1)
 
     for i, idx in enumerate(idxs):
         clean_img = unnormalize_image(x[idx])
+
+        axes1[i].imshow(clean_img)
+        axes1[i].set_title(
+            f"T:{y[idx]} | P:{clean_preds[idx]}\nConf:{clean_conf[idx]:.3f}",
+            fontsize=10
+        )
+        axes1[i].axis("off")
+
+    for j in range(n, len(axes1)):
+        axes1[j].axis("off")
+
+    fig1.suptitle("CLEAN IMAGES (Lowest Confidence Patched Set)", fontsize=18)
+    plt.tight_layout()
+    #plt.show()
+
+    # PATCHED WINDOW
+    fig2, axes2 = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows), dpi=150)
+    axes2 = np.array(axes2).reshape(-1)
+
+    for i, idx in enumerate(idxs):
         patched_img = unnormalize_image(x_patched[idx])
 
-        # Clean
-        plt.subplot(rows, cols, 2*i + 1)
-        plt.imshow(clean_img)
-        plt.title(
-            f"CLEAN\nT:{y[idx]} P:{clean_preds[idx]}\nConf:{clean_conf[idx]:.3f}",
-            fontsize=9
+        axes2[i].imshow(patched_img)
+        axes2[i].set_title(
+            f"P:{patched_preds[idx]}\nConf:{patched_conf[idx]:.3f}",
+            fontsize=10
         )
-        plt.axis("off")
+        axes2[i].axis("off")
 
-        # Patched
-        plt.subplot(rows, cols, 2*i + 2)
-        plt.imshow(patched_img)
-        plt.title(
-            f"PATCHED\nP:{patched_preds[idx]}\nConf:{patched_conf[idx]:.3f}",
-            fontsize=9
-        )
-        plt.axis("off")
+    for j in range(n, len(axes2)):
+        axes2[j].axis("off")
 
-    plt.suptitle("Lowest Confidence Patched Images (with Clean Comparison)", fontsize=14)
+    fig2.suptitle("PATCHED IMAGES (Lowest Confidence)", fontsize=18)
     plt.tight_layout()
     plt.show()

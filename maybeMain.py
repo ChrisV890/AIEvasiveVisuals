@@ -108,39 +108,48 @@ classifier.fit(
 # Create attack
 attack = AdversarialPatch(
     classifier=classifier,
-    patch_shape=(3, 75, 75),
-    rotation_max=22.5,
+    patch_shape=(3, 50, 50),
+    rotation_max=45,
     scale_min=0.7,
     scale_max=1.0,
     learning_rate=5.0,
     max_iter=200,
-    batch_size=8,
+    batch_size=16,
 )
 
 # Generate patch
-patch, mask, x_batch, y_batch = generate_adversarial_patch(
+patch, mask = generate_adversarial_patch(
     attack,
     train_loader,
-    num_classes=2
+    num_classes=2,
+    max_batches=5
 )
 
 
 
+#Evaluate
 # ------------------------------------
 # Evaluate the SAME validation batch
 # clean first, then patched
 # ------------------------------------
+
+
+# Clean predictions
 x_eval = x_val
 y_eval = y_val
 
 
-
-# Clean predictions
 clean_logits = classifier.predict(x_eval)
 clean_probs = softmax_np(clean_logits)
 clean_pred_classes = np.argmax(clean_probs, axis=1)
 clean_confidences = np.max(clean_probs, axis=1)
 clean_accuracy = np.mean(clean_pred_classes == y_eval)
+clean_true_conf = clean_probs[np.arange(len(y_eval)), y_eval]
+
+
+
+
+
 
 # Patched predictions on the SAME images
 x_eval_patched = attack.apply_patch(
@@ -154,6 +163,10 @@ patched_probs = softmax_np(patched_logits)
 patched_pred_classes = np.argmax(patched_probs, axis=1)
 patched_confidences = np.max(patched_probs, axis=1)
 patched_accuracy = np.mean(patched_pred_classes == y_eval)
+patched_true_conf = patched_probs[np.arange(len(y_eval)), y_eval]
+
+
+
 
 # Metrics
 print("\n--- Same Batch Comparison ---")
@@ -163,6 +176,9 @@ print("Accuracy Drop:", clean_accuracy - patched_accuracy)
 print("Mean Clean Confidence:", np.mean(clean_confidences))
 print("Mean Patched Confidence:", np.mean(patched_confidences))
 print("Mean Confidence Drop:", np.mean(clean_confidences) - np.mean(patched_confidences))
+print("Mean True-Class Confidence (clean):", np.mean(clean_true_conf))
+print("Mean True-Class Confidence (patched):", np.mean(patched_true_conf))
+print("True-Class Confidence Drop:", np.mean(clean_true_conf) - np.mean(patched_true_conf))
 print("Attack Success Rate:", np.mean((clean_pred_classes == y_eval) & (patched_pred_classes != y_eval)))
 
 
