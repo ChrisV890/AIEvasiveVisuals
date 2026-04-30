@@ -20,20 +20,20 @@ def loader_to_numpy(loader):
 def to_one_hot(y, num_classes):
     return np.eye(num_classes)[y].astype(np.float32)
 
-def get_mixed_batch(data_loader):
-    """
-    Returns the first batch containing both classes.
-    This makes patch generation more meaningful than using a single-class batch.
-    """
-    for images, labels in data_loader:
-        y = labels.numpy().astype(np.int64)
-        if len(np.unique(y)) > 1:
-            x = images.numpy().astype(np.float32)
-            return x, y
+# def get_mixed_batch(data_loader):
+#     """
+#     Returns the first batch containing both classes.
+#     This makes patch generation more meaningful than using a single-class batch.
+#     """
+#     for images, labels in data_loader:
+#         y = labels.numpy().astype(np.int64)
+#         if len(np.unique(y)) > 1:
+#             x = images.numpy().astype(np.float32)
+#             return x, y
 
-    # Fallback: just return the first batch if no mixed batch is found
-    images, labels = next(iter(data_loader))
-    return images.numpy().astype(np.float32), labels.numpy().astype(np.int64)
+#     # Fallback: just return the first batch if no mixed batch is found
+#     images, labels = next(iter(data_loader))
+#     return images.numpy().astype(np.float32), labels.numpy().astype(np.int64)
 
 def generate_adversarial_patch(attack, data_loader, num_classes=2, max_batches=10):
     """
