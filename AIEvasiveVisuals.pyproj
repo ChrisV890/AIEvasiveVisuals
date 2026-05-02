@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>713b084b-8705-4c80-a1b2-27220d62d3b6</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>maybeMain.py</StartupFile>
+    <StartupFile>ResNetM.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -26,8 +26,8 @@
     </Compile>
     <Compile Include="AIEvasiveVisuals.py" />
     <Compile Include="attackUtility.py" />
-    <Compile Include="cusCNN.py" />
-    <Compile Include="maybeMain.py">
+    <Compile Include="CNNM.py" />
+    <Compile Include="ResNetM.py">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
